@@ -223,7 +223,7 @@ void loop(){
 void process(){
       char option = 'c';             // local variables
       bool again = true;
-      positive_tone();
+      select_tone();
       
        lcd.home();
        lcd.print(menu[item_index]);     // print a menu item
@@ -279,19 +279,24 @@ void process(){
       else {                              // go was selected
          lcd.setCursor(0,1);              // move to the begining of the second line
          lcd.print("SELECTED        ");   // indicate Select button chosen
-         positive_tone();
-//       send command to Uno here 
+         select_tone();
+         
+//    *****   send command to Uno here *****
       }
-
 }
 //-------------------------------------
-void positive_tone(){
-       tone(12,2860,30);                // positive feedback
+void select_tone(){
+       tone(12,2860,30);                // Select feedback
        delay(100);
        tone(12,2960,30);
        delay(100);
        tone(12,3060,30);
        delay(100);
+}
+//-------------------------------------
+void positive_tone(){
+       tone(12,200,100);
+       delay(50);                     // positive feedback
 }
 //-------------------------------------
 void negative_tone(){
