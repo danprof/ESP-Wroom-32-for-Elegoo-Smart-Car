@@ -125,8 +125,8 @@ byte rtn[8] = {
 };
 //----------------------------------------
 int read_LCD_buttons(){
-  key_in = analogRead(adc_key_in);      // read the value from the sensor
-  if (key_in > 4000) return btnNONE;    // 1st option for speed reasons since most likely result
+  key_in = analogRead(adc_key_in);           // read the value from the sensor
+  if (key_in > 4000) return btnNONE;         // 1st option for speed reasons since most likely result
   if (key_in < 200)   return btnLEFT;
   if (key_in < 1000)  return btnDOWN; 
   if (key_in < 1500)  return btnUP;
@@ -139,11 +139,11 @@ void adjust_menu_cursor(int key){           // adjust item index according to th
   int count = 0;
   if(Llist[item_index][key] != 0 ){         // if there is a link
      item_index = Llist[item_index][key];   // get linked item's index
-     tone(12,2960,30);
+     tone(12,2960,30);                      // Positive feedback
      delay(50);
      count++;                               // count changes
   }
-  else tone(12,200,100);     delay(50);
+  else tone(12,200,100);     delay(50);     // negative feedback
 }
 //------------------------------------------------------
 void print_arrows(){
@@ -156,7 +156,7 @@ void print_arrows(){
 //------------------------------------------------------
 void setup(){
   Serial.begin(115200);
-  lcd.begin(16, 2);             // enable lcd (16 Char, 2 lines)
+  lcd.begin(16, 2);                           // enable lcd (16 Char, 2 lines)
   // create a new character
   lcd.createChar(0, left);
   // create a new character
@@ -169,51 +169,137 @@ void setup(){
   lcd.createChar(4, rtn);
   lcd.setCursor(0,0);
   lcd.print(menu[0]);
-  lcd.setCursor(0,1);               // move to the begining of the second line
-  lcd.print(menu[item_index]);      // print first menu item
-  lcd.setCursor(12,1);              // move to the begining of the second line
+  lcd.setCursor(0,1);                       // move to the begining of the second line
+  lcd.print(menu[item_index]);              // print first menu item
+  lcd.setCursor(12,1);                      // move to the begining of the second line
   print_arrows();
 }
 //--------------------------------------------------------
 void loop(){
-  lcd_key = read_LCD_buttons();             // read the buttons
-  switch (lcd_key)                          // go adjust menu row and column
+  lcd_key = read_LCD_buttons();            // read the buttons
+  switch (lcd_key)                         // go adjust menu row and column
   {
     case btnRIGHT: case btnLEFT: case btnUP: case btnDOWN:
      {
-       adjust_menu_cursor(lcd_key);     // adjust the item_index pointer
-       lcd.setCursor(0,1);              // move to the begining of the second line
-       lcd.print(menu[item_index]);     // print a menu item
-       lcd.setCursor(12,1);             // move to the end of the second line
+       adjust_menu_cursor(lcd_key);        // adjust the item_index pointer
+       lcd.setCursor(0,1);                 // move to the begining of the second line
+       lcd.print(menu[item_index]);        // print a menu item
+       lcd.setCursor(12,1);                // move to the end of the second line
        print_arrows();
 
 
-       if( Llist[item_index][0] != 0 ){ // if not 0 then it is a subset
-          lcd.setCursor(0,0);           // display  group title
+       if( Llist[item_index][0] != 0 ){    // if not 0 then it is a subset
+          lcd.setCursor(0,0);              // display  group title
           lcd.print(menu[Llist[item_index][0]]); 
        }
-       if( Llist[item_index][0] == 0 ){  // if 0 then at top level
-         lcd.setCursor(0,0);               //  display title
-         lcd.print(menu[0]);
+       if( Llist[item_index][0] == 0 ){    // if 0 then at top level
+          lcd.setCursor(0,0);              //  display title
+          lcd.print(menu[0]);
        }
        break;
      }
 
      case btnSELECT:
      {
-       lcd.setCursor(0,1);              // move to the begining of the second line
-       lcd.print("SELECT          ");   // indicate Select button chosen
-       delay(3000);
-       lcd.setCursor(0,1);              // move to the begining of the second linebreak;
-       lcd.print(menu[item_index]);     // print a menu item
-       lcd.setCursor(12,1);              // move to the begining of the second line
-       print_arrows();
-       break;
+          if( Llist[item_index][4] != 0 ){  
+             process();
+             break;
+          }
+          else{
+             negative_tone();            // negative feedback  
+          }
      }
+     
      case btnNONE:                      // nothing, just continue
      {
         break;
      }
   }
   delay(500);
+}
+//-------------------------------------------
+// process Selection
+
+void process(){
+      char option = 'c';             // local variables
+      bool again = true;
+      select_tone();
+      
+       lcd.home();
+       lcd.print(menu[item_index]);     // print a menu item
+       lcd.setCursor(0,1);              // move to the begining of the second line
+       lcd.write(byte(0)); 
+       lcd.print("                ");
+       delay(30);
+       lcd.setCursor(1,1);
+       lcd.print("Cancel    Go");
+       lcd.write(byte(1)); 
+
+       while(again == true)
+       {
+         lcd_key = read_LCD_buttons();    // read the buttons
+         switch(lcd_key)
+         { 
+            case btnUP: case btnDOWN: case btnSELECT:
+            {
+             negative_tone();                   // negative feedback 
+             break; 
+            }
+            
+            case btnRIGHT:
+            {
+               positive_tone();
+               option = 'g';
+               again = !again;
+               break; 
+            }
+            case btnLEFT:                
+            {
+              positive_tone();
+              option = 'c';
+              again = !again;
+              break;  
+            }
+
+           case btnNONE:                      // nothing, scan again
+           {
+               break;
+           }
+         }  
+      }
+      if(option != 'c' && option != 'g'){     // signal invalid key
+         negative_tone();                     // negative feedback
+      }
+      else if(option == 'c'){ 
+         lcd.setCursor(0,1);              // move to the begining of the second linebreak;
+         lcd.print(menu[item_index]);     // print a menu item             
+         lcd.setCursor(12,1);             // move near the end of the second line
+         print_arrows();
+      }
+      else {                              // go was selected
+         lcd.setCursor(0,1);              // move to the begining of the second line
+         lcd.print("SELECTED        ");   // indicate Select button chosen
+         select_tone();
+         
+//    *****   send command to Uno here *****
+      }
+}
+//-------------------------------------
+void select_tone(){
+       tone(12,2860,30);                // Select feedback
+       delay(100);
+       tone(12,2960,30);
+       delay(100);
+       tone(12,3060,30);
+       delay(100);
+}
+//-------------------------------------
+void positive_tone(){
+       tone(12,200,100);
+       delay(50);                     // positive feedback
+}
+//-------------------------------------
+void negative_tone(){
+       tone(12,200,100);
+       delay(50);                     // negative feedback
 }
