@@ -6,8 +6,14 @@
 // Date:      Nov 10,2020
 // Last Rev:  Nov 20,2020
 
-#include <LiquidCrystal.h>
-
+#include <LiquidCrystal.h>       // library for LCD
+#include <EEPROM.h>              // library to read and write from flash memory
+#define EEPROM_SIZE 10           // Flash Memory Settings
+                                 // mem 0: Sonar  0 = Single / 1 = Continuous
+                                 // mem 1: Sound  0 = OFF / 1 = ON
+                                 // mem 2: opMode "line","roam","BLE","IR"
+                                 // mem 3 - 10: future use
+                                  
 // select the pins used on the LCD panel
 const int rs = 32, en = 33, d4 = 14, d5 = 27, d6 = 26, d7 = 25;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);     // instantiate a display panel and call it lcd 
@@ -24,10 +30,13 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);     // instantiate a display panel an
 #define btnDOWN   3
 #define btnSELECT 4
 #define btnNONE   5
-int adc_key_in  = 36;   // keyboard adc input pin #
-int key_in     = 0;     // key value read in
-int lcd_key = 0;        // value returned from read_LCD_buttons
-bool sound = false;     // sound off by default
+int adc_key_in  = 36;    // keyboard adc input pin #
+int key_in     = 0;      // key value read in
+int lcd_key = 0;         // value returned from read_LCD_buttons
+bool sMode = 1;          // scan mode(0=single, 1=continuous)
+bool sound = true;       // sound setting
+int opMode = 1;          // default operation mode
+
 //------------------------------------------------------
 void tone(int pin, int frequency, int duration)
 {
@@ -156,9 +165,26 @@ void print_arrows(){
 //------------------------------------------------------
 void setup(){
   Serial.begin(115200);
-  lcd.begin(16, 2);                           // enable lcd (16 Char, 2 lines)
-  // create a new character
-  lcd.createChar(0, left);
+  EEPROM.begin(EEPROM_SIZE);                 // initialize EEPROM with predefined size
+  sMode = EEPROM.read(0);              // restore settings from flash memory 
+  sound = EEPROM.read(1);
+  EEPROM.write(2,3);
+  opMode = EEPROM.read(2);
+  Serial.print("sMode = ");
+  Serial.print(sMode);
+  if(sMode == 0) Serial.println("   SINGLE"); else Serial.println("   Continuous"); 
+  Serial.print("Sound = ");
+  Serial.print(sound);
+  if(sMode == 0) Serial.println("   OFF"); else Serial.println("   ON");  
+  Serial.print("opMode = ");
+  Serial.print(opMode);  
+  if(sMode == 0) Serial.println("   Line Following"); 
+  else if (opMode == 1) Serial.println("   Roam"); 
+  else if (opMode == 2) Serial.println("   BLE");
+  else Serial.println("  IR"); 
+  
+  lcd.begin(16, 2);                          // enable lcd (16 Char, 2 lines)
+  lcd.createChar(0, left);                   // create arrow characters
   // create a new character
   lcd.createChar(1, right);
   // create a new character
@@ -186,7 +212,6 @@ void loop(){
        lcd.print(menu[item_index]);        // print a menu item
        lcd.setCursor(12,1);                // move to the end of the second line
        print_arrows();
-
 
        if( Llist[item_index][0] != 0 ){    // if not 0 then it is a subset
           lcd.setCursor(0,0);              // display  group title
